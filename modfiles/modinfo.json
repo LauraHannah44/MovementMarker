@@ -1,0 +1,11 @@
+{
+	"id": "movementmarker",
+	"name": "Movement Marker",
+	"version": "1.1",
+	"hide_version": true,
+	"authors": "laura"
+	"description": "Adds a configurable display of the important statistics about your slugcat, for movement and tech.",
+	"requirements": [],
+	"requirements_names": [],
+	"checksum_override_version": false
+}
