@@ -6,11 +6,11 @@ using Menu.Remix.MixedUI;
 namespace RWMovementMarker
 {
     using static RWMovementMarker;
-    public class RWMMOptions : OptionInterface
+    partial class RWMMOptions : OptionInterface
     {
-        private OpColorPicker _backCol;
-        private OpColorPicker _onCol;
-        private OpColorPicker _offCol;
+        private OpColorPicker? _backCol;
+        private OpColorPicker? _onCol;
+        private OpColorPicker? _offCol;
 
         public override void Initialize()
         {

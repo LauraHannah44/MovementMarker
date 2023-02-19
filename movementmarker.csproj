@@ -3,6 +3,14 @@
 	<PropertyGroup>
 		<TargetFramework>net48</TargetFramework>
 		<LangVersion>11</LangVersion>
+		<TargetFramework>net48</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
+		<Authors>laura</Authors>
+		<Description>Displays stats.</Description>
 	</PropertyGroup>
 
 	<ItemGroup>

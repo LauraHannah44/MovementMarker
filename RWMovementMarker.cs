@@ -2,15 +2,16 @@
 using UnityEngine;
 using BepInEx;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Security;
-using System.Security.Permissions;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Mono.Cecil;
 using Newtonsoft.Json.Linq;
 using BepInEx.Bootstrap;
 using MSCRedux;
+using System.Reflection;
+using System.Security;
+using System.Security.Permissions;
+using static UnityEngine.UIElements.UxmlAttributeDescription;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 [assembly: SecurityPermission(System.Security.Permissions.SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -19,36 +20,38 @@ using MSCRedux;
 
 namespace RWMovementMarker;
 
-[BepInPlugin(MOD_ID, "Movement Marker", "1.0")]
-public partial class RWMovementMarker : BaseUnityPlugin
+[BepInPlugin(MOD_ID, "Movement Marker", "1.1")]
+internal partial class RWMovementMarker : BaseUnityPlugin
 {
     public const string MOD_ID = "movementmarker";
 
-    public static StatGraphic[] statGraphics = new StatGraphic[1];
-    public static Configurable<bool> eyeColour;
-    public static Configurable<bool> doKeyBinds;
-    public static Configurable<bool> aIncStorage;
-    public static Configurable<bool> bIncJumps;
-    public static Configurable<bool> cIncMoves;
-    public static Configurable<bool> dIncTunnel;
-    public static Configurable<bool> eIncShroom;
-    public static Configurable<bool> fIncMSC;
-    public static Configurable<bool> gIncState;
-    public static Configurable<bool> hIncSpeed;
-    public static Configurable<float> alpha;
-    public static Configurable<bool> permastore;
-    public static Configurable<bool> storeordie;
-    public static Configurable<Color> backColor;
-    public static Configurable<Color> onColor;
-    public static Configurable<Color> offColor;
-    public static Configurable<float> scale;
+    public static StatGraphic?[] statGraphics = new StatGraphic[1];
+    public static Configurable<bool> eyeColour = new(false);
+    public static Configurable<bool> doKeyBinds = new(false);
+    public static Configurable<bool> aIncStorage = new(true);
+    public static Configurable<bool> bIncJumps = new(false);
+    public static Configurable<bool> cIncMoves = new(false);
+    public static Configurable<bool> dIncTunnel = new(false);
+    public static Configurable<bool> eIncShroom = new(false);
+    public static Configurable<bool> fIncMSC = new(false);
+    public static Configurable<bool> gIncState = new(false);
+    public static Configurable<bool> hIncSpeed = new(false);
+    public static Configurable<bool> permastore = new(false);
+    public static Configurable<bool> storeordie = new(false);
+    public static Configurable<Color> backColor = new(new Color(0.173f, 0.192f, 0.235f));
+    public static Configurable<Color> onColor = new(new Color(0.561f, 0.6f, 0.678f));
+    public static Configurable<Color> offColor = new(new Color(0.063f, 0.059f, 0.114f));
+    public static Configurable<float> alpha = new(0.75f);
+    public static Configurable<float> scale = new(0.50f);
     public static float Scale => scale.Value * 2f;
 
     public static Vector2 origin = new(64f, 256f);
 
     private bool initialized;
 
-    private static List<BaseUnityPlugin> referencedPlugins;
+    private static readonly List<BaseUnityPlugin> referencedPlugins = new();
+
+    delegate bool AttachedFieldTryGet(Player p, out float f);
 
     public void Awake()
     {
@@ -74,13 +77,13 @@ public partial class RWMovementMarker : BaseUnityPlugin
 
     private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
     {
-        string[] neededModIDs = { "remix" };
-        if (ModManager.ActiveMods.Any(mod => (neededModIDs.Contains(mod.id)) && mod.hasDLL))
+        string[] neededModIDs = { "redux" };
+        if (ModManager.ActiveMods.Any(mod => neededModIDs.Contains(mod.id)))
         {
             Dictionary<string, PluginInfo> pluginDict = Chainloader.PluginInfos;
             foreach (PluginInfo pluginInfo in pluginDict.Values)
             {
-                if (pluginInfo.Metadata.TypeId is string thisID && neededModIDs.Contains(thisID))
+                if (pluginInfo.Metadata.GUID is string thisID && neededModIDs.Contains(thisID))
                 {
                     referencedPlugins.Add(pluginInfo.Instance);
                 }
@@ -195,7 +198,7 @@ public partial class RWMovementMarker : BaseUnityPlugin
     private void RainWorldGame_GrafUpdate(On.RainWorldGame.orig_GrafUpdate orig, RainWorldGame self, float timeStacker)
     {
         orig(self, timeStacker);
-        foreach (StatGraphic display in statGraphics)
+        foreach (StatGraphic? display in statGraphics)
             display?.Update(self);
     }
 
@@ -228,13 +231,15 @@ public partial class RWMovementMarker : BaseUnityPlugin
 
         private readonly Camera _rtCam;
         private Rect _rtBounds;
-        private RenderTexture _rt;
+        private RenderTexture? _rt;
 
-        public FSprite displaySprite;
+        public FSprite? displaySprite;
         public FContainer offscreenContainer;
 
         public StatGraphic(RoomCamera cam)
         {
+            buttons = null!;
+
             this.cam = cam;
 
             GameObject go = new("Movement Marker Camera");
@@ -248,6 +253,7 @@ public partial class RWMovementMarker : BaseUnityPlugin
             offscreenContainer = new FContainer();
             Futile.stage.AddChild(offscreenContainer);
 
+            
             InitSprites();
         }
 
@@ -328,8 +334,8 @@ public partial class RWMovementMarker : BaseUnityPlugin
                 buttons.Add(new StatButton(this, new Vector2(offset, 4f) * spacing, "PryCld", "pyroParryCooldown"));
                 if (ModManager.ActiveMods.Any(mod => mod.id == "redux"))
                 {
-                    buttons.Add(new StatButton(this, new Vector2(offset, 4f) * spacing, "SplWnd", "_pyroParryWindup", modID: "redux"));
-                    buttons.Add(new StatButton(this, new Vector2(offset, 4f) * spacing, "RivWet", "_soppingSoggyWetness", modID: "redux"));
+                    buttons.Add(new StatButton(this, new Vector2(offset, 5f) * spacing, "SplWnd", "_pyroJumpWindups", modID: "redux"));
+                    buttons.Add(new StatButton(this, new Vector2(offset, 6f) * spacing, "RivWet", "_soppingSoggyWetness", modID: "redux"));
                     maxheight = Mathf.Max(maxheight, 7f);
                 }
                 else
@@ -368,13 +374,13 @@ public partial class RWMovementMarker : BaseUnityPlugin
         {
             Futile.atlasManager.UnloadAtlas("MovementMarker_" + cam.cameraNumber);
             offscreenContainer.RemoveFromContainer();
-            displaySprite.RemoveFromContainer();
+            displaySprite?.RemoveFromContainer();
             Destroy(_rtCam.gameObject);
         }
 
         public void Update(RainWorldGame rainWorldGame)
         {
-            if (displaySprite.container != cam.ReturnFContainer("HUD2"))
+            if (displaySprite?.container != cam.ReturnFContainer("HUD2"))
                 cam.ReturnFContainer("HUD2").AddChild(displaySprite);
 
             // Move the stats display when right bracket is pressed
@@ -408,7 +414,7 @@ public partial class RWMovementMarker : BaseUnityPlugin
             foreach (StatButton button in buttons)
                 button.Update(rainWorldGame);
 
-            displaySprite.MoveToFront();
+            displaySprite?.MoveToFront();
             offscreenContainer.MoveToFront();
         }
 
@@ -441,7 +447,7 @@ public partial class RWMovementMarker : BaseUnityPlugin
             }
 
             // Update display sprite
-            displaySprite.SetPosition(origin + _rtBounds.min - Vector2.one * 0.5f);
+            displaySprite?.SetPosition(origin + _rtBounds.min - Vector2.one * 0.5f);
 
             // Update components
             Vector2 drawOrigin = DrawOrigin;
@@ -461,23 +467,21 @@ public partial class RWMovementMarker : BaseUnityPlugin
         public Vector2 relPos;
         private readonly string _keyName;
         private readonly string _markerName;
-        private readonly Type _valueType;
 
         private readonly float _width;
         private readonly int? _index;
-        private readonly string _modID;
+        private readonly string? _modID;
         private readonly FSprite _back;
         private readonly FSprite _front;
         private readonly FLabel _key;
+        AttachedFieldTryGet? targetTryGet = null;
 
-        public StatButton(StatGraphic parent, Vector2 pos, string keyName, string markerName, Type valueType = null, float width = 1f, int? index = null, string modID = null)
+        public StatButton(StatGraphic parent, Vector2 pos, string keyName, string markerName, float width = 1f, int? index = null, string? modID = null)
         {
             this.parent = parent;
             relPos = pos;
             _keyName = keyName;
             _markerName = markerName;
-            if (valueType is null) _valueType = typeof(float);
-            else _valueType = valueType;
             _width = width;
             _index = index;
             _modID = modID;
@@ -540,11 +544,10 @@ public partial class RWMovementMarker : BaseUnityPlugin
 
             if (rainWorldGame.Players.Count > 0)
             {
-                FieldInfo fieldInfo = null;
-                object value = null;
+                FieldInfo? fieldInfo = null;
+                object? value = null;
 
-                if (rainWorldGame.Players[0].realizedObject == null) return;
-                Player player = rainWorldGame.Players[0].realizedObject as Player;
+                if (rainWorldGame.Players[0].realizedObject is not Player player) return;
 
                 if (_modID is null)
                 {
@@ -552,7 +555,6 @@ public partial class RWMovementMarker : BaseUnityPlugin
                     if (fieldInfo == null)
                     {
                         fieldInfo = typeof(PhysicalObject).GetField(_markerName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-
                     }
                     List<string> speedNames = new() { "speed", "speedX", "speedY" };
                     if (speedNames.Contains(_markerName))
@@ -576,26 +578,39 @@ public partial class RWMovementMarker : BaseUnityPlugin
                 }
                 else
                 {
-                    if (ModManager.ActiveMods.Any(mod => mod.id == _modID && mod.hasDLL))
+                    if (ModManager.ActiveMods.Any(mod => mod.id == _modID))
                     {
-                        fieldInfo = typeof(BaseUnityPlugin).GetField(_markerName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-
                         foreach(BaseUnityPlugin plugin in referencedPlugins)
                         {
-                            value = fieldInfo.GetValue(plugin);
-                            if (value is not null) return;
+                            if (targetTryGet is null)
+                            {
+                                BaseUnityPlugin mod = null!;
+                                mod = plugin;
+                                const BindingFlags ALL_CONTEXTS = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
+                                FieldInfo fieldInModClass = mod.GetType().GetField(_markerName, ALL_CONTEXTS);
+                                if (fieldInModClass is not null)
+                                {
+                                    value = fieldInModClass.GetValue(mod);
+                                }
+                                if (value is not null)
+                                {
+                                    MethodInfo attachedFieldTryGetMethod = value.GetType().GetMethod("TryGet", ALL_CONTEXTS);
+                                    targetTryGet = (AttachedFieldTryGet)Delegate.CreateDelegate(typeof(AttachedFieldTryGet), value, attachedFieldTryGetMethod);
+                                }
+                            }
+                            else
+                            {
+                                targetTryGet(player, out float fieldFloat);
+                                value = fieldFloat;
+                            }
                         }
                     }
                 }
 
                 if (_index.HasValue) // should fetch array to value
                 {
-                    if (value is object[] objArray) value = objArray[_index.Value];
+                    if (value is float[] floatArray) value = floatArray[_index.Value];
                     else value = null;
-                }
-                else if (_modID is not null) // should fetch AttachedField to value
-                {
-                    if (value is AttachedField<Player, float> attFldValues) value = attFldValues.Get(player);
                 }
                 else // something goes wrong
                 {
@@ -617,7 +632,7 @@ public partial class RWMovementMarker : BaseUnityPlugin
                     }
                     if (Scale < 0.75f)
                     {
-                        _key.text = _keyName.Substring(0, 1) + "\n" + displayValue;
+                        _key.text = _keyName + "\n" + displayValue;
                     }
                     else
                     {
