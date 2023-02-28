@@ -11,6 +11,7 @@ using MSCRedux;
 using System.Reflection;
 using System.Security;
 using System.Security.Permissions;
+using RWCustom;
 using static UnityEngine.UIElements.UxmlAttributeDescription;
 
 #pragma warning disable CS0618 // Type or member is obsolete
@@ -43,13 +44,15 @@ internal partial class RWMovementMarker : BaseUnityPlugin
     public static Configurable<Color> offColor = new(new Color(0.063f, 0.059f, 0.114f));
     public static Configurable<float> alpha = new(0.75f);
     public static Configurable<float> scale = new(0.50f);
-    public static float Scale => scale.Value * 2f;
+    public static float _scale => scale.Value * 2f;
 
-    public static Vector2 origin = new(64f, 256f);
+    public static Vector2 _origin = new(64f, 256f);
 
-    private bool initialized;
+    private bool _initialized;
 
-    private static readonly List<BaseUnityPlugin> referencedPlugins = new();
+    private static readonly List<BaseUnityPlugin> _referencedPlugins = new();
+
+    private static AttachedField<PlayerGraphics, Color> _eyeColor = new();
 
     delegate bool AttachedFieldTryGet(Player p, out float f);
 
@@ -59,8 +62,8 @@ internal partial class RWMovementMarker : BaseUnityPlugin
         {
             orig(self);
 
-            if (initialized) return;
-            initialized = true;
+            if (_initialized) return;
+            _initialized = true;
 
             MachineConnector.SetRegisteredOI(MOD_ID, new RWMMOptions());
 
@@ -77,6 +80,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
 
     private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
     {
+        orig(self);
         string[] neededModIDs = { "redux" };
         if (ModManager.ActiveMods.Any(mod => neededModIDs.Contains(mod.id)))
         {
@@ -85,7 +89,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
             {
                 if (pluginInfo.Metadata.GUID is string thisID && neededModIDs.Contains(thisID))
                 {
-                    referencedPlugins.Add(pluginInfo.Instance);
+                    _referencedPlugins.Add(pluginInfo.Instance);
                 }
             }
         }
@@ -165,6 +169,8 @@ internal partial class RWMovementMarker : BaseUnityPlugin
     {
         orig(self, sLeaser, rCam, timeStacker, camPos);
 
+        if (!_eyeColor.TryGet(self, out Color eyeColor)) _eyeColor.Set(self, sLeaser.sprites[9].color);
+
         float redColour = 0;
         float greenColour = 0;
         float blueColour = 0;
@@ -181,7 +187,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
         }
         else
         {
-            sLeaser.sprites[9].color = rCam.currentPalette.blackColor;
+            sLeaser.sprites[9].color = eyeColor;
         }
     }
 
@@ -386,7 +392,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
             // Move the stats display when right bracket is pressed
             if (Input.GetKey(KeyCode.RightBracket))
             {
-                origin = Input.mousePosition;
+                _origin = Input.mousePosition;
                 Move();
             }
             
@@ -397,7 +403,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
                     _dragging = false;
                 else
                 {
-                    origin = (Vector2)Input.mousePosition + _dragOffset;
+                    _origin = (Vector2)Input.mousePosition + _dragOffset;
                     Move();
                 }
             }
@@ -406,7 +412,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
                 if (Input.GetMouseButtonDown(0) && IsMouseOver)
                 {
                     _dragging = true;
-                    _dragOffset = origin - (Vector2)Input.mousePosition;
+                    _dragOffset = _origin - (Vector2)Input.mousePosition;
                 }
             }
 
@@ -447,7 +453,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
             }
 
             // Update display sprite
-            displaySprite?.SetPosition(origin + _rtBounds.min - Vector2.one * 0.5f);
+            displaySprite?.SetPosition(_origin + _rtBounds.min - Vector2.one * 0.5f);
 
             // Update components
             Vector2 drawOrigin = DrawOrigin;
@@ -461,7 +467,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
 
     public class StatButton
     {
-        public static float Size => Mathf.Floor(24f * Scale) * 2f;
+        public static float Size => Mathf.Floor(24f * _scale) * 2f;
 
         public StatGraphic parent;
         public Vector2 relPos;
@@ -488,10 +494,10 @@ internal partial class RWMovementMarker : BaseUnityPlugin
 
             _back = new FSprite("pixel") { anchorX = 0f, anchorY = 0f, scaleX = _width * Size, scaleY = Size, color = backColor.Value };
             _front = new FSprite("pixel") { anchorX = 0f, anchorY = 0f, scaleX = _width * Size - 2f, scaleY = Size - 2f };
-            _key = new("font", _keyName);
+            _key = new(Custom.GetFont(), _keyName);
             Move(Vector2.zero);
             AddToContainer();
-            if (Scale < 0.75f)
+            if (_scale < 0.75f)
             {
                 _key.text = keyName.Substring(0, 1);
             }
@@ -502,8 +508,8 @@ internal partial class RWMovementMarker : BaseUnityPlugin
             get
             {
                 Vector2 mp = Input.mousePosition;
-                mp.x -= origin.x + relPos.x;
-                mp.y -= origin.y + relPos.y;
+                mp.x -= _origin.x + relPos.x;
+                mp.y -= _origin.y + relPos.y;
                 if (mp.x < 0f || mp.y < 0f) return false;
                 if (mp.x > _width * Size || mp.y > Size) return false;
                 return true;
@@ -580,7 +586,7 @@ internal partial class RWMovementMarker : BaseUnityPlugin
                 {
                     if (ModManager.ActiveMods.Any(mod => mod.id == _modID))
                     {
-                        foreach(BaseUnityPlugin plugin in referencedPlugins)
+                        foreach(BaseUnityPlugin plugin in _referencedPlugins)
                         {
                             if (targetTryGet is null)
                             {
@@ -630,9 +636,9 @@ internal partial class RWMovementMarker : BaseUnityPlugin
                     {
                         displayValue = value.ToString();
                     }
-                    if (Scale < 0.75f)
+                    if (_scale < 0.75f)
                     {
-                        _key.text = _keyName + "\n" + displayValue;
+                        _key.text = _keyName.Substring(0, 1) + "\n" + displayValue;
                     }
                     else
                     {
